@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>내 주식 대시보드</title>
+    <style>
+        /* 전체 레이아웃 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #0f1117;
+            color: #ffffff;
+            padding: 20px;
+        }
+
+        /* 헤더 */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            border-bottom: 1px solid #2a2d35;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        /* 마지막 업데이트 시간 */
+        #last-update {
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        /* 새로고침 버튼 */
+        #refresh-btn {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+        #refresh-btn:hover {
+            background-color: #2563eb;
+        }
+
+        /* 요약 카드 섹션 */
+        .summary-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+
+        .summary-card {
+            background-color: #1c1f26;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #2a2d35;
+        }
+
+        .summary-card .label {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .summary-card .value {
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .summary-card .value.profit {
+            color: #ef4444;
+        }
+
+        .summary-card .value.loss {
+            color: #3b82f6;
+        }
+
+        /* 주식 테이블 */
+        .table-section {
+            background-color: #1c1f26;
+            border-radius: 12px;
+            border: 1px solid #2a2d35;
+            overflow: hidden;
+        }
+
+        .table-section h2 {
+            padding: 20px;
+            font-size: 16px;
+            border-bottom: 1px solid #2a2d35;
+            color: #9ca3af;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead th {
+            padding: 12px 20px;
+            text-align: right;
+            font-size: 13px;
+            color: #6b7280;
+            background-color: #161820;
+        }
+
+        thead th:first-child {
+            text-align: left;
+        }
+
+        tbody tr {
+            border-top: 1px solid #2a2d35;
+            transition: background-color 0.2s;
+        }
+
+        tbody tr:hover {
+            background-color: #22252e;
+        }
+
+        tbody td {
+            padding: 16px 20px;
+            text-align: right;
+            font-size: 14px;
+        }
+
+        tbody td:first-child {
+            text-align: left;
+        }
+
+        /* 주식 이름 */
+        .stock-name {
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .stock-code {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 2px;
+        }
+
+        /* 수익률 색상 */
+        .profit {
+            color: #ef4444;
+        }
+
+        .loss {
+            color: #3b82f6;
+        }
+
+        /* 로딩 */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+
+        /* 에러 */
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #ef4444;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 헤더 -->
+    <header>
+        <h1>📈 내 주식 대시보드</h1>
+        <div style="display:flex; align-items:center; gap:16px;">
+            <span id="last-update">업데이트 중...</span>
+            <button id="refresh-btn" onclick="loadData()">🔄 새로고침</button>
+        </div>
+    </header>
+
+    <!-- 요약 카드 -->
+    <div class="summary-section">
+        <div class="summary-card">
+            <div class="label">💰 총 평가금액</div>
+            <div class="value" id="total-value">-</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">📥 총 매입금액</div>
+            <div class="value" id="total-buy">-</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">📊 총 평가손익</div>
+            <div class="value" id="total-pnl">-</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">📈 수익률</div>
+            <div class="value" id="total-rate">-</div>
+        </div>
+    </div>
+
+    <!-- 주식 목록 테이블 -->
+    <div class="table-section">
+        <h2>보유 종목</h2>
+        <div id="table-container">
+            <div class="loading">⏳ 데이터 불러오는 중...</div>
+        </div>
+    </div>
+
+    <script>
+        // 숫자 포맷 (1000000 → 1,000,000)
+        function formatNumber(num) {
+            return Number(num).toLocaleString('ko-KR');
+        }
+
+        // 수익률 색상
+        function getColorClass(value) {
+            return Number(value) >= 0 ? 'profit' : 'loss';
+        }
+
+        // 데이터 불러오기
+        async function loadData() {
+            document.getElementById('last-update').textContent = '업데이트 중...';
+            
+            try {
+                const response = await fetch('/api/balance');
+                const data = await response.json();
+
+                // 에러 체크
+                if (data.error) {
+                    document.getElementById('table-container').innerHTML = 
+                        `<div class="error">❌ 에러: ${data.error}</div>`;
+                    return;
+                }
+
+                // 보유 종목 (output1)
+                const stocks = data.output1 || [];
+                // 계좌 요약 (output2)
+                const summary = data.output2 || {};
+
+                // 요약 카드 업데이트
+                document.getElementById('total-value').textContent = 
+                    formatNumber(summary.evlu_amt_smtl_amt || 0) + '원';
+                document.getElementById('total-buy').textContent = 
+                    formatNumber(summary.pchs_amt_smtl_amt || 0) + '원';
+                
+                const pnl = summary.evlu_pfls_smtl_amt || 0;
+                const rate = summary.asst_icdc_erng_rt || 0;
+                
+                document.getElementById('total-pnl').textContent = 
+                    formatNumber(pnl) + '원';
+                document.getElementById('total-pnl').className = 
+                    'value ' + getColorClass(pnl);
+
+                document.getElementById('total-rate').textContent = 
+                    Number(rate).toFixed(2) + '%';
+                document.getElementById('total-rate').className = 
+                    'value ' + getColorClass(rate);
+
+                // 테이블 생성
+                if (stocks.length === 0) {
+                    document.getElementById('table-container').innerHTML = 
+                        '<div class="loading">보유 종목이 없어요 📭</div>';
+                    return;
+                }
+
+                let tableHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>종목명</th>
+                                <th>현재가</th>
+                                <th>매입가</th>
+                                <th>보유수량</th>
+                                <th>평가금액</th>
+                                <th>평가손익</th>
+                                <th>수익률</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                stocks.forEach(stock => {
+                    const rate = Number(stock.evlu_pfls_rt);
+                    const pnl = Number(stock.evlu_pfls_amt);
+                    const colorClass = getColorClass(rate);
+
+                    tableHTML += `
+                        <tr>
+                            <td>
+                                <div class="stock-name">${stock.prdt_name}</div>
+                                <div class="stock-code">${stock.pdno}</div>
+                            </td>
+                            <td>${formatNumber(stock.prpr)}원</td>
+                            <td>${formatNumber(stock.pchs_avg_pric)}원</td>
+                            <td>${formatNumber(stock.hldg_qty)}주</td>
+                            <td>${formatNumber(stock.evlu_amt)}원</td>
+                            <td class="${colorClass}">${formatNumber(pnl)}원</td>
+                            <td class="${colorClass}">${rate.toFixed(2)}%</td>
+                        </tr>
+                    `;
+                });
+
+                tableHTML += `</tbody></table>`;
+                document.getElementById('table-container').innerHTML = tableHTML;
+
+                // 업데이트 시간
+                const now = new Date();
+                document.getElementById('last-update').textContent = 
+                    `마지막 업데이트: ${now.toLocaleTimeString('ko-KR')}`;
+
+            } catch (error) {
+                document.getElementById('table-container').innerHTML = 
+                    `<div class="error">❌ 서버 연결 실패</div>`;
+            }
+        }
+
+        // 페이지 로드시 자동 실행
+        loadData();
+
+        // 30초마다 자동 새로고침
+        setInterval(loadData, 30000);
+    </script>
+
+</body>
+</html>
