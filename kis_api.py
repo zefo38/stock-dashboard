@@ -52,7 +52,14 @@ def load_token() -> str|None:
     return data.get("access_token")
 
 # 토큰 발급
-def get_access_token():
+def get_access_token() -> str:
+    # 저장된 토큰 있으면 재사용
+    token = load_token()
+    if token:
+        return token
+    
+    # 없으면 새로 발급
+    print("한투 API 토큰 새로 발급 중...")
     url = f"{BASE_URL}/oauth2/tokenP"
     headers = {"Content-Type": "application/json"}
     body = {
@@ -62,7 +69,11 @@ def get_access_token():
     }
     response = requests.post(url, json=body, headers=headers)
     response.raise_for_status()
-    return response.json().get("access_token")
+    token = response.json()["access_token"]
+
+    # 파일에 저장
+    save_token(token)
+    return token
 
 
 # 계좌 잔고 조회
