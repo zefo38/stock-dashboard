@@ -18,6 +18,39 @@ BASE_URL = (
     else "https://openapi.koreainvestment.com:9443"  # 실전투자
 )
 
+# 토큰 파일 경로
+TOKEN_FILE = "token.json"
+
+# 토큰 파일에 저장
+def save_token(token: str):
+    data = {
+        "access_token": token,
+        "saved_at":time.time() # 저장 시간 기록
+    }
+    with open(TOKEN_FILE, "w") as f:
+        json.dump(data, f)
+    print("✅ 토큰 파일 저장 완료!")
+
+# 토큰 파일에서 불러오기
+def load_token() -> str|None:
+    # 파일 없으면 None 반환
+    if not os.path.exists(TOKEN_FILE):
+        print("토큰 파일 없음 -> 새로 발급")
+        return None
+
+    with open(TOKEN_FILE, "r") as f:
+        data = json.load(f)
+
+    # 저장된 지 23시간 이상 지났으면 만료 처리
+    # 토큰 유효시간이 24시간이므로 23시간으로 설정해서 여유있게 갱신
+    elapsed = time.time() - data["saved_at"]
+    if elapsed > 23 * 3600:  # 23시간 (초)
+        print("토큰 만료 -> 새로 발급")
+        return None
+
+    print("저장된 토큰 재사용")
+    return data.get("access_token")
+
 # 토큰 발급
 def get_access_token():
     url = f"{BASE_URL}/oauth2/tokenP"

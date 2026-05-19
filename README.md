@@ -44,19 +44,19 @@ venv\Scripts\activate
 \```
 
 ### 3. 패키지 설치
-\```bash
+```bash
 pip install fastapi uvicorn python-dotenv requests jinja2
-\```
+```
 
 ### 4. 환경변수 설정
 루트 폴더에 `.env` 파일 생성:
-\```
+```
 KIS_APP_KEY=발급받은_앱키
 KIS_APP_SECRET=발급받은_시크릿
 KIS_ACCOUNT_NO=계좌번호앞8자리
 KIS_ACCOUNT_PROD_CODE=01
 IS_MOCK=true
-\```
+```
 
 ### 5. 서버 실행
 \```bash
